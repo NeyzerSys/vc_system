@@ -58,7 +58,7 @@ defmodule VcSystem.Access.SessionsTest do
       assert session.agent.id == agent.id
       assert DateTime.diff(session.expires_at, DateTime.utc_now(), :minute) in 59..60
       assert DateTime.diff(session.refresh_expires_at, DateTime.utc_now(), :hour) in 11..12
-      assert events(agent) == ["login"]
+      assert events(agent) == ["LOGIN"]
     end
 
     test "stores only the hash of the tokens" do
@@ -111,7 +111,7 @@ defmodule VcSystem.Access.SessionsTest do
 
       assert {:error, :session_expired} = Sessions.verify_access_token(session.access_token)
       assert Repo.aggregate(UserToken, :count) == 0
-      assert events(agent) == ["login", "session_expired"]
+      assert events(agent) == ["LOGIN", "SESSION_EXPIRED"]
     end
 
     test "rejects revoked sessions and inactive agents", %{agent: agent, session: session} do
@@ -150,7 +150,7 @@ defmodule VcSystem.Access.SessionsTest do
       expire_sessions(agent)
 
       assert {:error, :session_expired} = Sessions.refresh_session(session.refresh_token)
-      assert events(agent) == ["login", "session_expired"]
+      assert events(agent) == ["LOGIN", "SESSION_EXPIRED"]
     end
   end
 
@@ -162,7 +162,7 @@ defmodule VcSystem.Access.SessionsTest do
 
       assert :ok = Sessions.logout(user_token)
       assert {:error, :invalid_token} = Sessions.verify_access_token(session.access_token)
-      assert events(agent) == ["login", "logout"]
+      assert events(agent) == ["LOGIN", "LOGOUT"]
     end
   end
 
@@ -187,9 +187,9 @@ defmodule VcSystem.Access.SessionsTest do
 
       assert [%UserToken{agent_id: agent_id}] = Repo.all(UserToken)
       assert agent_id == live.id
-      assert events(expired) == ["login", "session_expired"]
-      assert events(revoked) == ["login"]
-      assert events(live) == ["login"]
+      assert events(expired) == ["LOGIN", "SESSION_EXPIRED"]
+      assert events(revoked) == ["LOGIN"]
+      assert events(live) == ["LOGIN"]
     end
 
     test "returns 0 when nothing expired" do

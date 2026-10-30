@@ -52,7 +52,7 @@ defmodule VcSystem.Access.Agents.Sessions do
 
     Repo.transaction(fn ->
       user_token = Repo.insert!(user_token)
-      Audit.log_access!(agent, "login")
+      Audit.log_access!(agent, "LOGIN")
       session(agent, user_token, access_token, refresh_token)
     end)
   end
@@ -62,7 +62,7 @@ defmodule VcSystem.Access.Agents.Sessions do
 
   Returns `{:ok, agent, user_token}`, `{:error, :session_expired}` or
   `{:error, :invalid_token}`. An expired session is deleted and logged as
-  `session_expired`.
+  `SESSION_EXPIRED`.
   """
   def verify_access_token(token) when is_binary(token) do
     with {:ok, hash} <- hash_token(token),
@@ -107,16 +107,16 @@ defmodule VcSystem.Access.Agents.Sessions do
   end
 
   @doc """
-  Closes the session and logs the `logout`.
+  Closes the session and logs the `LOGOUT`.
   """
   def logout(%UserToken{} = user_token) do
-    end_session(user_token, "logout")
+    end_session(user_token, "LOGOUT")
   end
 
   @doc """
-  Deletes every expired session and logs `session_expired` for each one that
+  Deletes every expired session and logs `SESSION_EXPIRED` for each one that
   was still active. Revoked sessions are deleted without a new log entry:
-  their `session_revoked` was already written.
+  their `SESSION_REVOKED` was already written.
 
   Returns how many sessions were deleted.
   """
@@ -134,7 +134,7 @@ defmodule VcSystem.Access.Agents.Sessions do
         |> select([_t, a], %{id: a.id, email: a.email})
         |> Repo.delete_all()
 
-      Audit.log_access_all!(agents, "session_expired")
+      Audit.log_access_all!(agents, "SESSION_EXPIRED")
       revoked + active
     end)
     |> then(fn {:ok, count} -> count end)
@@ -145,7 +145,7 @@ defmodule VcSystem.Access.Agents.Sessions do
 
   defp check_usable(%UserToken{agent: agent} = user_token) do
     if UserToken.expired?(user_token, now()) do
-      end_session(user_token, "session_expired")
+      end_session(user_token, "SESSION_EXPIRED")
       {:error, :session_expired}
     else
       {:ok, agent, user_token}

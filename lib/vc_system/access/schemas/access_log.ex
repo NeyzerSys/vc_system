@@ -9,7 +9,7 @@ defmodule VcSystem.Access.Schemas.AccessLog do
 
   alias VcSystem.Access.Schemas.Agent
 
-  @events ~w(login logout session_revoked session_expired)
+  @events ~w(LOGIN LOGOUT SESSION_REVOKED SESSION_EXPIRED)
 
   schema "access_log" do
     field :email, :string
