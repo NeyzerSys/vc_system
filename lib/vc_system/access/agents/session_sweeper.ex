@@ -2,7 +2,7 @@ defmodule VcSystem.Access.Agents.SessionSweeper do
   @moduledoc """
   Deletes expired sessions every `interval_minutes`, so sessions abandoned
   without a logout do not stay in `user_tokens` forever and still get their
-  `session_expired` entry.
+  `SESSION_EXPIRED` entry.
 
   Safe to run on several nodes at once: each deleted row is returned, and
   logged, by only one of them.
