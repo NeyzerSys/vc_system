@@ -43,6 +43,13 @@ defmodule VcSystemWeb.Endpoint do
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
 
+  # Lets the frontend call the API from another origin. Must run before the
+  # router so browser preflight (OPTIONS) requests get answered.
+  plug CORSPlug,
+    origin: &VcSystemWeb.CORS.origins/0,
+    headers: ["authorization", "content-type", "accept"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
     pass: ["*/*"],

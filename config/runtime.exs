@@ -43,6 +43,15 @@ if config_env() in [:dev, :prod] do
     socket_options: maybe_ipv6
 
   config :vc_system, VcSystemWeb.Endpoint, http: [port: port]
+
+  # Comma-separated origins allowed to call the API from a browser, e.g.
+  # "http://localhost:5173,https://app.example.com". Empty means none.
+  cors_origins =
+    System.get_env("CORS_ORIGINS", "")
+    |> String.split(",", trim: true)
+    |> Enum.map(&String.trim/1)
+
+  config :vc_system, :cors_origins, cors_origins
 end
 
 if config_env() == :dev do

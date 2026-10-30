@@ -7,21 +7,34 @@ defmodule VcSystem.Application do
 
   @impl true
   def start(_type, _args) do
-    children = [
-      VcSystemWeb.Telemetry,
-      VcSystem.Repo,
-      {DNSCluster, query: Application.get_env(:vc_system, :dns_cluster_query) || :ignore},
-      {Phoenix.PubSub, name: VcSystem.PubSub},
-      # Start a worker by calling: VcSystem.Worker.start_link(arg)
-      # {VcSystem.Worker, arg},
-      # Start to serve requests, typically the last entry
-      VcSystemWeb.Endpoint
-    ]
+    children =
+      [
+        VcSystemWeb.Telemetry,
+        VcSystem.Repo,
+        {DNSCluster, query: Application.get_env(:vc_system, :dns_cluster_query) || :ignore},
+        {Phoenix.PubSub, name: VcSystem.PubSub}
+      ] ++
+        session_sweeper() ++
+        [
+          # Start to serve requests, typically the last entry
+          VcSystemWeb.Endpoint
+        ]
 
     # See https://elixir.hexdocs.pm/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: VcSystem.Supervisor]
     Supervisor.start_link(children, opts)
+  end
+
+  # Disabled in tests, where each test cleans up after itself.
+  defp session_sweeper do
+    config = Application.get_env(:vc_system, VcSystem.Access.Agents.SessionSweeper, [])
+
+    if Keyword.get(config, :enabled, true) do
+      [{VcSystem.Access.Agents.SessionSweeper, config}]
+    else
+      []
+    end
   end
 
   # Tell Phoenix to update the endpoint configuration

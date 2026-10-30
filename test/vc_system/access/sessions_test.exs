@@ -162,4 +162,37 @@ defmodule VcSystem.Access.SessionsTest do
       assert events(agent) == ["login", "logout"]
     end
   end
+
+  describe "delete_expired_sessions/0" do
+    alias VcSystem.Access.Agents.Sessions
+
+    test "deletes expired sessions, logs active ones and keeps live ones" do
+      expired = agent_fixture()
+      revoked = agent_fixture()
+      live = agent_fixture()
+
+      for agent <- [expired, revoked, live] do
+        {:ok, _} = Access.login(agent.email, valid_agent_password())
+      end
+
+      expire_sessions(expired)
+      expire_sessions(revoked)
+
+      Repo.update_all(from(t in UserToken, where: t.agent_id == ^revoked.id),
+        set: [revoked: true]
+      )
+
+      assert Sessions.delete_expired_sessions() == 2
+
+      assert [%UserToken{agent_id: agent_id}] = Repo.all(UserToken)
+      assert agent_id == live.id
+      assert events(expired) == ["login", "session_expired"]
+      assert events(revoked) == ["login"]
+      assert events(live) == ["login"]
+    end
+
+    test "returns 0 when nothing expired" do
+      assert Sessions.delete_expired_sessions() == 0
+    end
+  end
 end

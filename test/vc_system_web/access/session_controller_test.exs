@@ -90,4 +90,26 @@ defmodule VcSystemWeb.Access.SessionControllerTest do
       assert json_response(conn, 401)
     end
   end
+
+  describe "CORS" do
+    test "answers the preflight of an allowed origin" do
+      conn =
+        build_conn()
+        |> put_req_header("origin", "http://localhost:5173")
+        |> put_req_header("access-control-request-method", "POST")
+        |> options("/api/v1/login")
+
+      assert conn.status == 204
+      assert get_resp_header(conn, "access-control-allow-origin") == ["http://localhost:5173"]
+    end
+
+    test "does not allow other origins", %{conn: conn} do
+      conn =
+        conn
+        |> put_req_header("origin", "https://otro-sitio.com")
+        |> get(~p"/api/v1/me")
+
+      refute get_resp_header(conn, "access-control-allow-origin") == ["https://otro-sitio.com"]
+    end
+  end
 end

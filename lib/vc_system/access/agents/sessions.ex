@@ -113,6 +113,33 @@ defmodule VcSystem.Access.Agents.Sessions do
     end_session(user_token, "logout")
   end
 
+  @doc """
+  Deletes every expired session and logs `session_expired` for each one that
+  was still active. Revoked sessions are deleted without a new log entry:
+  their `session_revoked` was already written.
+
+  Returns how many sessions were deleted.
+  """
+  def delete_expired_sessions do
+    now = now()
+    expired = from t in UserToken, where: t.expires_at <= ^now
+
+    Repo.transaction(fn ->
+      {revoked, _} = Repo.delete_all(where(expired, [t], t.revoked))
+
+      {active, agents} =
+        expired
+        |> where([t], not t.revoked)
+        |> join(:inner, [t], a in assoc(t, :agent))
+        |> select([_t, a], %{id: a.id, email: a.email})
+        |> Repo.delete_all()
+
+      Audit.log_access_all!(agents, "session_expired")
+      revoked + active
+    end)
+    |> then(fn {:ok, count} -> count end)
+  end
+
   defp check_usable(%UserToken{revoked: true}), do: {:error, :invalid_token}
   defp check_usable(%UserToken{agent: %{active: false}}), do: {:error, :invalid_token}
 

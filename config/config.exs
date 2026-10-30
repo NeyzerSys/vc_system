@@ -17,6 +17,9 @@ config :vc_system, VcSystem.Access.Agents.Sessions,
   access_ttl_minutes: 60,
   refresh_ttl_hours: 12
 
+# How often expired sessions are deleted from user_tokens.
+config :vc_system, VcSystem.Access.Agents.SessionSweeper, interval_minutes: 15
+
 # Configure the endpoint
 config :vc_system, VcSystemWeb.Endpoint,
   url: [host: "localhost"],
