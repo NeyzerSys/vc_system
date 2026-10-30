@@ -3,7 +3,8 @@ defmodule VcSystem.Access.SessionsTest do
 
   import VcSystem.AccessFixtures
 
-  alias VcSystem.Access
+  alias VcSystem.Access.Agents
+  alias VcSystem.Access.Agents.Sessions
   alias VcSystem.Access.Schemas.{AccessLog, Agent, UserToken}
 
   defp events(agent) do
@@ -25,7 +26,7 @@ defmodule VcSystem.Access.SessionsTest do
       agent = agent_fixture()
 
       assert {:error, changeset} =
-               Access.create_agent(%{
+               Agents.create_agent(%{
                  first_name: "Otro",
                  last_name: "Agente",
                  email: String.upcase(agent.email),
@@ -37,7 +38,7 @@ defmodule VcSystem.Access.SessionsTest do
 
     test "rejects short passwords" do
       assert {:error, changeset} =
-               Access.create_agent(%{
+               Agents.create_agent(%{
                  first_name: "Sara",
                  last_name: "Lopez",
                  email: unique_agent_email(),
@@ -52,7 +53,7 @@ defmodule VcSystem.Access.SessionsTest do
     test "opens a session and logs it" do
       agent = agent_fixture()
 
-      assert {:ok, session} = Access.login(agent.email, valid_agent_password())
+      assert {:ok, session} = Sessions.login(agent.email, valid_agent_password())
       assert session.token_type == "Bearer"
       assert session.agent.id == agent.id
       assert DateTime.diff(session.expires_at, DateTime.utc_now(), :minute) in 59..60
@@ -62,7 +63,7 @@ defmodule VcSystem.Access.SessionsTest do
 
     test "stores only the hash of the tokens" do
       agent = agent_fixture()
-      {:ok, session} = Access.login(agent.email, valid_agent_password())
+      {:ok, session} = Sessions.login(agent.email, valid_agent_password())
 
       user_token = Repo.get_by!(UserToken, agent_id: agent.id)
       refute user_token.access_token == session.access_token
@@ -74,12 +75,14 @@ defmodule VcSystem.Access.SessionsTest do
       inactive = agent_fixture()
       Repo.update_all(from(a in Agent, where: a.id == ^inactive.id), set: [active: false])
 
-      assert {:error, :invalid_credentials} = Access.login(agent.email, "contrasena-mala")
+      assert {:error, :invalid_credentials} = Sessions.login(agent.email, "contrasena-mala")
 
       assert {:error, :invalid_credentials} =
-               Access.login("nadie@example.com", valid_agent_password())
+               Sessions.login("nadie@example.com", valid_agent_password())
 
-      assert {:error, :invalid_credentials} = Access.login(inactive.email, valid_agent_password())
+      assert {:error, :invalid_credentials} =
+               Sessions.login(inactive.email, valid_agent_password())
+
       assert Repo.aggregate(AccessLog, :count) == 0
     end
   end
@@ -87,66 +90,66 @@ defmodule VcSystem.Access.SessionsTest do
   describe "verify_access_token/1" do
     setup do
       agent = agent_fixture()
-      {:ok, session} = Access.login(agent.email, valid_agent_password())
+      {:ok, session} = Sessions.login(agent.email, valid_agent_password())
       %{agent: agent, session: session}
     end
 
     test "returns the agent for a valid token", %{agent: agent, session: session} do
       assert {:ok, %Agent{id: id}, %UserToken{}} =
-               Access.verify_access_token(session.access_token)
+               Sessions.verify_access_token(session.access_token)
 
       assert id == agent.id
     end
 
     test "rejects unknown or malformed tokens" do
-      assert {:error, :invalid_token} = Access.verify_access_token("no-es-un-token")
-      assert {:error, :invalid_token} = Access.verify_access_token("")
+      assert {:error, :invalid_token} = Sessions.verify_access_token("no-es-un-token")
+      assert {:error, :invalid_token} = Sessions.verify_access_token("")
     end
 
     test "ends an expired session and logs session_expired", %{agent: agent, session: session} do
       expire_sessions(agent)
 
-      assert {:error, :session_expired} = Access.verify_access_token(session.access_token)
+      assert {:error, :session_expired} = Sessions.verify_access_token(session.access_token)
       assert Repo.aggregate(UserToken, :count) == 0
       assert events(agent) == ["login", "session_expired"]
     end
 
     test "rejects revoked sessions and inactive agents", %{agent: agent, session: session} do
       Repo.update_all(UserToken, set: [revoked: true])
-      assert {:error, :invalid_token} = Access.verify_access_token(session.access_token)
+      assert {:error, :invalid_token} = Sessions.verify_access_token(session.access_token)
 
       Repo.update_all(UserToken, set: [revoked: false])
       Repo.update_all(from(a in Agent, where: a.id == ^agent.id), set: [active: false])
-      assert {:error, :invalid_token} = Access.verify_access_token(session.access_token)
+      assert {:error, :invalid_token} = Sessions.verify_access_token(session.access_token)
     end
   end
 
   describe "refresh_session/1" do
     setup do
       agent = agent_fixture()
-      {:ok, session} = Access.login(agent.email, valid_agent_password())
+      {:ok, session} = Sessions.login(agent.email, valid_agent_password())
       %{agent: agent, session: session}
     end
 
     test "replaces both tokens and keeps the 12 hour limit", %{session: session} do
-      assert {:ok, new_session} = Access.refresh_session(session.refresh_token)
+      assert {:ok, new_session} = Sessions.refresh_session(session.refresh_token)
 
       assert new_session.access_token != session.access_token
       assert new_session.refresh_token != session.refresh_token
       assert new_session.refresh_expires_at == session.refresh_expires_at
-      assert {:error, :invalid_token} = Access.verify_access_token(session.access_token)
-      assert {:ok, _agent, _token} = Access.verify_access_token(new_session.access_token)
+      assert {:error, :invalid_token} = Sessions.verify_access_token(session.access_token)
+      assert {:ok, _agent, _token} = Sessions.verify_access_token(new_session.access_token)
     end
 
     test "a refresh token works only once", %{session: session} do
-      assert {:ok, _} = Access.refresh_session(session.refresh_token)
-      assert {:error, :invalid_token} = Access.refresh_session(session.refresh_token)
+      assert {:ok, _} = Sessions.refresh_session(session.refresh_token)
+      assert {:error, :invalid_token} = Sessions.refresh_session(session.refresh_token)
     end
 
     test "cannot renew once the access token expired", %{agent: agent, session: session} do
       expire_sessions(agent)
 
-      assert {:error, :session_expired} = Access.refresh_session(session.refresh_token)
+      assert {:error, :session_expired} = Sessions.refresh_session(session.refresh_token)
       assert events(agent) == ["login", "session_expired"]
     end
   end
@@ -154,25 +157,23 @@ defmodule VcSystem.Access.SessionsTest do
   describe "logout/1" do
     test "deletes the session and logs it" do
       agent = agent_fixture()
-      {:ok, session} = Access.login(agent.email, valid_agent_password())
-      {:ok, _agent, user_token} = Access.verify_access_token(session.access_token)
+      {:ok, session} = Sessions.login(agent.email, valid_agent_password())
+      {:ok, _agent, user_token} = Sessions.verify_access_token(session.access_token)
 
-      assert :ok = Access.logout(user_token)
-      assert {:error, :invalid_token} = Access.verify_access_token(session.access_token)
+      assert :ok = Sessions.logout(user_token)
+      assert {:error, :invalid_token} = Sessions.verify_access_token(session.access_token)
       assert events(agent) == ["login", "logout"]
     end
   end
 
   describe "delete_expired_sessions/0" do
-    alias VcSystem.Access.Agents.Sessions
-
     test "deletes expired sessions, logs active ones and keeps live ones" do
       expired = agent_fixture()
       revoked = agent_fixture()
       live = agent_fixture()
 
       for agent <- [expired, revoked, live] do
-        {:ok, _} = Access.login(agent.email, valid_agent_password())
+        {:ok, _} = Sessions.login(agent.email, valid_agent_password())
       end
 
       expire_sessions(expired)

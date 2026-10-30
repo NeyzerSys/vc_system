@@ -5,7 +5,7 @@ defmodule VcSystem.AccessFixtures do
   import Ecto.Query
 
   alias VcSystem.Repo
-  alias VcSystem.Access
+  alias VcSystem.Access.Agents
   alias VcSystem.Access.Schemas.UserToken
 
   def valid_agent_password, do: "contrasena-de-prueba"
@@ -21,7 +21,7 @@ defmodule VcSystem.AccessFixtures do
         email: unique_agent_email(),
         password: valid_agent_password()
       })
-      |> Access.create_agent()
+      |> Agents.create_agent()
 
     agent
   end
