@@ -3,6 +3,11 @@ import Config
 # Only in tests: make password hashing fast.
 config :bcrypt_elixir, :log_rounds, 1
 
+config :vc_system, :cors_origins, ["http://localhost:5173"]
+
+# Tests call Sessions.delete_expired_sessions/0 directly.
+config :vc_system, VcSystem.Access.Agents.SessionSweeper, enabled: false
+
 # Configure your database
 #
 # The MIX_TEST_PARTITION environment variable can be used
