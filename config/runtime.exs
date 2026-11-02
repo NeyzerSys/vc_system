@@ -52,6 +52,12 @@ if config_env() in [:dev, :prod] do
     |> Enum.map(&String.trim/1)
 
   config :vc_system, :cors_origins, cors_origins
+
+  # The periodic cleanup of expired sessions runs by default. Set
+  # SESSION_SWEEPER_ENABLED=false to turn it off on this server.
+  if System.get_env("SESSION_SWEEPER_ENABLED") in ~w(false 0) do
+    config :vc_system, VcSystem.Access.Agents.SessionSweeper, enabled: false
+  end
 end
 
 if config_env() == :dev do

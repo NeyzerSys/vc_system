@@ -26,7 +26,8 @@ defmodule VcSystem.Application do
     Supervisor.start_link(children, opts)
   end
 
-  # Disabled in tests, where each test cleans up after itself.
+  # On by default. Turned off in tests, or with SESSION_SWEEPER_ENABLED=false
+  # (read in config/runtime.exs).
   defp session_sweeper do
     config = Application.get_env(:vc_system, VcSystem.Access.Agents.SessionSweeper, [])
 
